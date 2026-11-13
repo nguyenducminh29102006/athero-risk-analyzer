@@ -8,7 +8,7 @@ import streamlit.components.v1 as components
 # 1. PAGE CONFIGURATION & CLINICAL UI STYLING
 # ==============================================================================
 st.set_page_config(
-    page_title="Athero-Risk Analyzer | Clinical Intake & Triage System",
+    page_title="Cardio-Risk Analyzer | Clinical Intake & Reference Prototype",
     page_icon="🫀",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -75,40 +75,37 @@ st.markdown(
 )
 
 # ==============================================================================
-# 2. CONSTANTS & REFERENCE PARAMETERS (MATCHING PERSONAL STATEMENT 100%)
+# 2. CONSTANTS & REFERENCE PARAMETERS (SYNCED 100% WITH TABLEAU N = 68,610)
 # ==============================================================================
-DB_PATH = "athero_risk_clinical.db"
+DB_PATH = "cardio_risk_clinical.db"
 
-# Clean Embed URL from Tableau Public
 TABLEAU_BASE_URL = (
     "https://public.tableau.com/views/"
     "CardioRiskAnalyzer-NguyenDucMinh-VYGO2026/Dashboard1"
 )
 TABLEAU_EMBED_URL = (
-    f"{TABLEAU_BASE_URL}?:embed=y&:showVizHome=no&:toolbar=top&:language=en-GB"
+    f"{TABLEAU_BASE_URL}?:embed=y&:showVizHome=no&:toolbar=top&:language=en-US"
 )
 
-# Physiological Validation Bounds
 SBP_MIN, SBP_MAX = 70, 250
 DBP_MIN, DBP_MAX = 40, 150
 HEIGHT_MIN, HEIGHT_MAX = 120.0, 220.0
 WEIGHT_MIN, WEIGHT_MAX = 30.0, 200.0
 AGE_MIN, AGE_MAX = 18, 100
 
-# Cohort Subgroup Reference Probability Matrix (Glucose Level x Physical Activity)
-# Bounded from 46.6% (Normal Glucose + Active) to 63.4% (Well above normal Glucose + Inactive)
+# Exact Subgroup Prevalence Values from Tableau Heatmap (Glucose Level x Physical Activity)
 SUBGROUP_PROB_MATRIX = {
     ("Normal", "Yes"): 46.6,
-    ("Normal", "No"): 50.8,
-    ("Above Normal", "Yes"): 56.2,
-    ("Above Normal", "No"): 60.5,
-    ("Well above normal", "Yes"): 59.8,
+    ("Normal", "No"): 51.5,
+    ("Above Normal", "Yes"): 58.1,
+    ("Above Normal", "No"): 61.7,
+    ("Well above normal", "Yes"): 61.4,
     ("Well above normal", "No"): 63.4,
 }
 
 
 # ==============================================================================
-# 3. CLINICAL VALIDATION & HEMODYNAMIC / TRIAGE ENGINE
+# 3. CLINICAL VALIDATION & RULE-BASED TRIAGE ENGINE
 # ==============================================================================
 def validate_clinical_inputs(
     patient_name: str,
@@ -167,12 +164,11 @@ def evaluate_patient_profile(
     smoke: str,
     active: str,
 ) -> dict:
-    """Compute BMI, Pulse Pressure (PP), Mean Arterial Pressure (MAP), and Triage Label."""
+    """Compute BMI, Pulse Pressure (PP), Mean Arterial Pressure (MAP), and Rule-Based Triage Label."""
     bmi = round(weight_kg / ((height_cm / 100.0) ** 2), 1)
     pp = int(sbp - dbp)
     map_val = round(dbp + (pp / 3.0), 1)
 
-    # Count metabolic and lifestyle risk factors
     risk_factors = []
     if cholesterol != "Normal":
         risk_factors.append(f"Cholesterol ({cholesterol})")
@@ -185,7 +181,6 @@ def evaluate_patient_profile(
 
     risk_factor_count = len(risk_factors)
 
-    # Blood Pressure Zone Classification
     is_overt_hypertension = (sbp >= 140) or (dbp >= 90)
     is_borderline_bp = (120 <= sbp <= 139) or (80 <= dbp <= 89)
 
@@ -227,7 +222,7 @@ def evaluate_patient_profile(
 # 4. LOCAL SQLITE DATABASE ENGINE (FLAT TABLE `patient_intake` + SEED DATA)
 # ==============================================================================
 def init_and_seed_db():
-    """Initialize flat SQLite table `patient_intake` and populate realistic Vietnamese seed records."""
+    """Initialize flat SQLite table `patient_intake` and populate synthetic Vietnamese seed records."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -357,7 +352,7 @@ def insert_patient_record(
 
 
 def fetch_live_queue() -> pd.DataFrame:
-    """Retrieve patient queue ordered by Triage Priority Rank, Systolic BP, and Intake Time."""
+    """Retrieve patient queue ordered by Triage Priority Rank, Systolic BP, and Intake ID."""
     conn = sqlite3.connect(DB_PATH)
     query = """
         SELECT
@@ -389,19 +384,18 @@ def fetch_live_queue() -> pd.DataFrame:
 
 
 def reset_seed_database():
-    """Reset SQLite database back to default 6 Vietnamese patient records."""
+    """Reset SQLite database back to default 6 synthetic Vietnamese patient records."""
     conn = sqlite3.connect(DB_PATH)
     conn.execute("DROP TABLE IF EXISTS patient_intake")
     conn.close()
     init_and_seed_db()
 
 
-# Initialize database on startup
 init_and_seed_db()
 
 
 # ==============================================================================
-# 5. SIDEBAR: VALIDATED CLINICAL INPUT FORM (COMPONENT 1 & 2)
+# 5. SIDEBAR: VALIDATED CLINICAL INPUT FORM
 # ==============================================================================
 with st.sidebar:
     st.markdown("## 🩺 Clinical Intake Form")
@@ -523,13 +517,13 @@ with st.sidebar:
 
 
 # ==============================================================================
-# 6. MAIN FRAME TOP: HEADER, KPI SUMMARY & SQLITE LIVE TRIAGE QUEUE (COMPONENT 3)
+# 6. MAIN FRAME TOP: HEADER, KPI SUMMARY & SQLITE LIVE TRIAGE QUEUE
 # ==============================================================================
 st.markdown(
     """
     <div class="main-header">
-        <h1>🫀 Athero-Risk Analyzer (Cardio Risk Analyzer)</h1>
-        <p>Two-Tier Clinical Intake, Hemodynamic Risk-Prioritization & Population BI Reference System (Cohort N = 68,610 | Age 29–64)</p>
+        <h1>🫀 Cardio-Risk Analyzer</h1>
+        <p>Web-Based Clinical Intake, Rule-Based Priority Queue & Population Reference Prototype (Cohort N = 68,610 | Ages 29–64)</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -561,7 +555,7 @@ with kpi2:
         <div class="kpi-card alert">
             <div class="kpi-title">🔴 Priority Triage (Elevated Risk)</div>
             <div class="kpi-value">{priority_count} Cases ({priority_pct}%)</div>
-            <div class="kpi-sub">Auto-routed to top of clinical queue</div>
+            <div class="kpi-sub">Rule-based priority queue sorting</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -585,7 +579,7 @@ with kpi4:
         <div class="kpi-card reference">
             <div class="kpi-title">Reference Cohort Baseline Risk</div>
             <div class="kpi-value">49.5%</div>
-            <div class="kpi-sub">N = 68,610 validated records (Subgroups: 46.6%–63.4%)</div>
+            <div class="kpi-sub">N = 68,610 cleaned records (Subgroups: 46.6%–63.4%)</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -593,7 +587,7 @@ with kpi4:
 
 st.markdown("### 📋 Live Clinical Consultation & Triage Queue (SQLite Engine)")
 st.caption(
-    "Patients classified as **🔴 Elevated Risk (Priority Triage)**—via either overt hypertension (SBP ≥ 140 or DBP ≥ 90 mmHg) or borderline blood pressure (120–139 / 80–89 mmHg) compounded by ≥ 2 metabolic/lifestyle risk factors—are automatically prioritized at the top."
+    "Preliminary rule-based priority queue: patients meeting **🔴 Elevated Risk** criteria—via overt hypertension (SBP ≥ 140 or DBP ≥ 90 mmHg) or borderline blood pressure (120–139 / 80–89 mmHg) accompanied by ≥ 2 metabolic/lifestyle risk factors—are sorted to the top for physician review."
 )
 
 display_cols = [
@@ -642,8 +636,8 @@ with st.expander("📐 View Hemodynamic Formulas, Triage Rules & Cohort Subgroup
         matrix_df = pd.DataFrame(
             {
                 "Glucose Level": ["Normal", "Above Normal", "Well above normal"],
-                "Active (Yes)": ["46.6% (Lowest)", "56.2%", "59.8%"],
-                "Inactive (No)": ["50.8%", "60.5%", "63.4% (Highest)"],
+                "Active (Yes)": ["46.6% (Lowest)", "58.1%", "61.4%"],
+                "Inactive (No)": ["51.5%", "61.7%", "63.4% (Highest)"],
             }
         )
         st.table(matrix_df)
@@ -651,18 +645,18 @@ with st.expander("📐 View Hemodynamic Formulas, Triage Rules & Cohort Subgroup
 st.markdown("---")
 
 # ==============================================================================
-# 7. MAIN FRAME BOTTOM: EMBEDDED TABLEAU PUBLIC ENGINE (COMPONENT 4)
+# 7. MAIN FRAME BOTTOM: EMBEDDED TABLEAU PUBLIC ENGINE
 # ==============================================================================
 col_tb_title, col_tb_link = st.columns([3, 1])
 with col_tb_title:
-    st.markdown("### 📊 Population Reference Layer: Interactive Epidemiological Dashboard (N = 68,610)")
+    st.markdown("### 📊 Population Reference Layer: Interactive Analytical Dashboard (N = 68,610)")
     st.caption(
-        "Cross-reference individual patient vitals against the 68,610-patient reference cohort. Explore the high-risk overlap in the borderline blood pressure zone (120–139 / 80–89 mmHg) and the Glucose × Physical Activity probability heatmap (46.6% to 63.4%)."
+        "Descriptive population reference dashboard operating alongside the local intake queue. Examine multi-factor patterns in the borderline blood pressure zone (120–139 / 80–89 mmHg) and Glucose × Physical Activity subgroups (46.6% to 63.4%)."
     )
 with col_tb_link:
     st.link_button(
         "🔗 Open Fullscreen on Tableau Public",
-        url=f"{TABLEAU_BASE_URL}?:language=en-GB",
+        url=f"{TABLEAU_BASE_URL}?:language=en-US",
         use_container_width=True,
     )
 
